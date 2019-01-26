@@ -1,0 +1,179 @@
+#!/usr/bin/python3
+#
+# Manages iptables chains for use with knockd
+#
+#
+import os
+import argparse
+
+def osexecute(cmd):
+    if args.debug: print (cmd)
+    os.system(cmd)
+
+def octet(ip, on):
+    return int(ip.split('.')[on])
+
+def ipcompare(lineip, testip):
+# Returns true if lineip > testip
+    if octet(lineip,0) == octet(testip,0):
+        for i in [1,2,3]:
+            if octet(lineip,i) < octet(testip,i):
+                return False
+    elif octet(lineip,0) < octet(testip,0):
+        return False
+    return True
+
+def removechaincall(ipchain):
+    for line in os.popen('iptables -L INPUT -vn --line-numbers'):
+        lwords = ' '.join((line.rstrip()).split()).split(' ')
+        try:
+            ln = int(lwords[0])
+        except:
+            ln = 0
+        if ln != 0:
+            if lwords[3] == ipchain:
+                osexecute ("iptables -D INPUT {}".format(ln))
+
+def empty1chain(ipchain, fdelete):
+# Delete the first entry if fdelete is true. Return True if chain is not empty, else False
+    for line in os.popen('iptables -L {} -vn --line-numbers 2> /dev/null '.format(ipchain)):
+        lwords = ' '.join((line.rstrip()).split()).split(' ')
+        try:
+            ln = int(lwords[0])
+        except:
+            ln = 0
+        if ln != 0:
+            if fdelete: osexecute ("iptables -D {} {}".format(ipchain, ln))
+            return True
+    return False
+
+def emptychain(ipchain):
+# Loop deleting the first found entry until no more
+    while empty1chain(ipchain, True):
+        pass
+
+def updatechain(ipchain, ipaddr, cmdfound, cmdnotfound):
+# Update the chain with the new entry
+# cmdfound true: delete the entry if found
+# cmdnotfound true: add the entry if not found
+# cmdfound and cmdnotfound are mutually exclusive
+#
+    for line in os.popen('iptables -L {} -vn --line-numbers'.format(ipchain)):
+        lwords = ' '.join((line.rstrip()).split()).split(' ')
+        try:
+            ln = int(lwords[0])
+        except:
+            ln = 0
+        if ln != 0:
+            lineip = lwords[8].split('/')[0]
+
+            if lwords[3] == "ACCEPT" or lwords[3] == "DROP" or lwords[3] == "REJECT":
+                if lineip == "0.0.0.0": lineip = "999.999.999.999"
+                if ipaddr == lineip:
+                    if cmdfound:
+                        osexecute ("iptables -D {} {}".format(ipchain,ln))
+                    return
+                elif ipcompare(lineip, ipaddr):
+                    if cmdnotfound:
+                        osexecute ("iptables -I {} {} -s {} -j ACCEPT".format(ipchain, ln, ipaddr))
+                    return
+#
+# Command processing functions
+#
+def cmd_init(args):
+    if not empty1chain(ipchain, False):
+        sproto = "udp" if args.udp else "tcp"
+        ssyn = "--syn" if args.syn else ""
+        sacceptdrop = "ACCEPT" if args.accept else "DROP"
+        osexecute("iptables -N {}".format(ipchain))
+        osexecute("iptables -A INPUT -p {} -m {} -s 0.0.0.0/0 --dport {} {} -j {}".format(sproto, sproto, args.port, ssyn, ipchain))
+        osexecute("iptables -A {} -s 0.0.0.0/0 -j {}".format(ipchain, sacceptdrop))
+    else:
+        print("% Chain '{}' already exists".format(ipchain))
+
+def cmd_remove(args):
+    emptychain(ipchain)
+    removechaincall(ipchain)
+    osexecute("iptables -X {}".format(ipchain))
+
+def cmd_add(args):
+    updatechain(ipchain, args.ipaddr.split('/')[0], False, True)
+
+def cmd_delete(args):
+    updatechain(ipchain, args.ipaddr.split('/')[0], True, False)
+
+def cmd_list(args):
+    osexecute("iptables -L -vn")
+    
+def cmd_nocommand(args):
+    parser.print_help(None)
+    
+def cmd_help(args):
+    parser.print_help(None)
+    print("\npktables manages service definitions for use with knockd\n\
+by setting up and managing iptables chains for the knockd daemon.\n\
+pktables adds a 'jump' to each service-specific chain, and manages the per-IP\n\
+entries in the service-specific chain. Use the pktables 'add' and 'delete' commands\n\
+in knockd.conf. Sample knockd.conf entry:\n\
+\n\
+# Initialization: pktables init --service ssh --port 22 --syn\n\
+[opencloseSSH]\n\
+        sequence      = 29336, 33115\n\
+        seq_timeout   = 10\n\
+        tcpflags      = syn\n\
+        start_command = /usr/local/bin/pktables add --service ssh --ipaddr %IP%\n\
+        cmd_timeout   = 30\n\
+        stop_command  = /usr/local/bin/pktables delete --service ssh --ipaddr %IP%\n\
+\n\
+The 'pktables init' command establishes the table 'pk-ssh' and causes all traffic\n\
+to port 22 with TCP syn set to jump to that table. The start_command adds the IP address\n\
+that just completed a knock to the pk-ssh table. The stop_command removes this IP address\n\
+from the table. See 'man knockd' for complete details.\n")
+
+#
+# Main program
+#
+parser = argparse.ArgumentParser(prog="pktables")
+parser.set_defaults(func=cmd_nocommand, service="None") # Needed for the case if no command specified
+
+subparsers = parser.add_subparsers(help="sub-command help")
+
+parser_init = subparsers.add_parser("init", help="Initialize new iptables service chain")
+parser_init.add_argument("service", help="Service name")
+parser_init.add_argument("--port", help="Service TCP/UDP port number", required=True)
+netgroup = parser_init.add_mutually_exclusive_group()
+netgroup.add_argument("--udp", help="Use UDP instead of TCP", action="store_true")
+netgroup.add_argument("--syn", help="Only filter TCP syn requests", action="store_true")
+parser_init.add_argument("--accept", help="End service chain with ACCEPT instead of DROP for monitoring", action="store_true")
+parser_init.add_argument("--debug", help="Echo iptables commands", action="store_true")
+parser_init.set_defaults(func=cmd_init)
+
+parser_remove = subparsers.add_parser("remove", help="Remove an iptables service chain")
+parser_remove.add_argument("service", help="Service name")
+parser_remove.add_argument("--debug", help="Echo iptables commands", action="store_true")
+parser_remove.set_defaults(func=cmd_remove)
+
+parser_add = subparsers.add_parser("add", help="Add specified IP address to a service chain")
+parser_add.add_argument("ipaddr", help="IP Address")
+parser_add.add_argument("--service", help="Service name", required=True)
+parser_add.add_argument("--debug", help="Echo iptables commands", action="store_true")
+parser_add.set_defaults(func=cmd_add)
+
+parser_delete = subparsers.add_parser("delete", help="Delete specified IP address from service chain")
+parser_delete.add_argument("ipaddr", help="IP Address")
+parser_delete.add_argument("--service", help="Service name", required=True)
+parser_delete.add_argument("--debug", help="Echo iptables commands", action="store_true")
+parser_delete.set_defaults(func=cmd_delete)
+
+parser_list = subparsers.add_parser("list", help="List current iptables (iptables -L -vn)")
+parser_list.add_argument("--debug", help="Echo iptables commands", action="store_true")
+parser_list.set_defaults(func=cmd_list, service="None")
+
+parser_help = subparsers.add_parser("help", help="Print help")
+parser_help.set_defaults(func=cmd_help, service="None") # service=None so that args.service is defined
+
+args = parser.parse_args()
+ipchain = "pk-{}".format(args.service)
+args.func(args)
+
+exit()
