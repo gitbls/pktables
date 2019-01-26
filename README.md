@@ -27,9 +27,9 @@ Once established, any packets hitting the host on the target port and criteria a
 
 The *servicename* in the pktables commands is a string of your choice. Typically, you'll use the protocol name (e.g., *ssh*), but you can name it whatever you'd like.
 
-* `pktables init servicename --port portnum [--udp | --syn] [--accept]` - The *init* command creates the pk-servicename iptables chain and adds the rule to the INPUT chain that jumps to this new chain.
+* `pktables init servicename --port portnum [--udp | --syn] [--accept]` &mdash; The *init* command creates the pk-servicename iptables chain and adds the rule to the INPUT chain that jumps to this new chain.
 
-    * *servicename* is required specifies the service user-specified name for the service. All subsequent pktables commands for this service must use the same servicename.
+    * *servicename* is required specifies the service user-specified name for the service. All subsequent pktables commands for this service must use the same *servicename*.
 
     * `--port` is required and specifies TCP or UDP the port number for the service
 
@@ -37,11 +37,11 @@ The *servicename* in the pktables commands is a string of your choice. Typically
 
     * `--accept` terminates the pk-servicename chain with an ACCEPT rather than DROP, which you might want to do for monitoring or early testing. `--accept` is optional.
 
-* `pktables remove servicename` - Removes the pk-servicename chain and the jump to it in the INPUT chain
+* `pktables remove servicename` &mdash; Removes the pk-servicename chain and the jump to it in the INPUT chain
 
-* `pktables add ipaddr --service servicename` - Adds an entry to the pk-servicename chain to ACCEPT packets from the specified IP address. `--service servicename` is required.
+* `pktables add ipaddr --service servicename` &mdash; Adds an entry to the pk-servicename chain to ACCEPT packets from the specified IP address. `--service servicename` is required.
 
-* `pktables delete ipaddr --service servicename` - Removes the entry for the specified IP address from the pk-servicename chain. `--service servicename` is required.
+* `pktables delete ipaddr --service servicename` &mdash; Removes the entry for the specified IP address from the pk-servicename chain. `--service servicename` is required.
 
 ## Usage
 
