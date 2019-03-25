@@ -37,6 +37,14 @@ The *servicename* in the pktables commands is a string of your choice. Typically
 
     * `--accept` terminates the pk-servicename chain with an ACCEPT rather than DROP, which you might want to do for monitoring or early testing. `--accept` is optional.
 
+    * `--log` logs packets sent to this port that are not accepted
+
+    * `--log-prefix` specifies the prefix string to use on the iptables log entry
+
+    * `--log-level` specifies the level for the log entry
+
+    * `--log-limit` specifies the maximum packets to log per /second, /minute, /hour, or /day, as in 10/second
+
 * `pktables remove servicename` &mdash; Removes the pk-servicename chain and the jump to it in the INPUT chain
 
 * `pktables add ipaddr --service servicename` &mdash; Adds an entry to the pk-servicename chain to ACCEPT packets from the specified IP address. `--service servicename` is required.

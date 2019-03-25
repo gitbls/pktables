@@ -67,7 +67,7 @@ def updatechain(ipchain, ipaddr, cmdfound, cmdnotfound):
         if ln != 0:
             lineip = lwords[8].split('/')[0]
 
-            if lwords[3] == "ACCEPT" or lwords[3] == "DROP" or lwords[3] == "REJECT":
+            if lwords[3] == "ACCEPT" or lwords[3] == "DROP" or lwords[3] == "REJECT" or lwords[3] == "LOG":
                 if lineip == "0.0.0.0": lineip = "999.999.999.999"
                 if ipaddr == lineip:
                     if cmdfound:
@@ -85,9 +85,14 @@ def cmd_init(args):
         sproto = "udp" if args.udp else "tcp"
         ssyn = "--syn" if args.syn else ""
         sacceptdrop = "ACCEPT" if args.accept else "DROP"
+        logprefix = "" if args.log_prefix is None else "--log-prefix \"{}\"".format(args.log_prefix)
+        loglevel = "" if args.log_level is None else "--log-level {}".format(args.log_level)
+        loglimit = "" if args.log_limit is None else "-m limit --limit {}".format(args.log_limit)
+#        logburst = "" if args.log_burst is None else "--limit-burst {}".format(args.log_burst)
         osexecute("iptables -N {}".format(ipchain))
-        osexecute("iptables -A INPUT -p {} -m {} -s 0.0.0.0/0 --dport {} {} -j {}".format(sproto, sproto, args.port, ssyn, ipchain))
+        if args.log: osexecute("iptables -I {} -j LOG {} {} {}".format(ipchain, logprefix, loglevel, loglimit))
         osexecute("iptables -A {} -s 0.0.0.0/0 -j {}".format(ipchain, sacceptdrop))
+        osexecute("iptables -A INPUT -p {} -m {} -s 0.0.0.0/0 --dport {} {} -j {}".format(sproto, sproto, args.port, ssyn, ipchain))
     else:
         print("% Chain '{}' already exists".format(ipchain))
 
@@ -144,6 +149,11 @@ parser_init.add_argument("--port", help="Service TCP/UDP port number", required=
 netgroup = parser_init.add_mutually_exclusive_group()
 netgroup.add_argument("--udp", help="Use UDP instead of TCP", action="store_true")
 netgroup.add_argument("--syn", help="Only filter TCP syn requests", action="store_true")
+parser_init.add_argument("--log", help="Log packets sent to this port", action="store_true")
+parser_init.add_argument("--log-prefix", help="Prefix for logged entries")
+parser_init.add_argument("--log-level", help="Log level for logged entries")
+parser_init.add_argument("--log-limit", help="Max packets to log per /second, /minute, /hour, or /day")
+#parser_init.add_argument("--log-burst", help="Burst packet maximum")
 parser_init.add_argument("--accept", help="End service chain with ACCEPT instead of DROP for monitoring", action="store_true")
 parser_init.add_argument("--debug", help="Echo iptables commands", action="store_true")
 parser_init.set_defaults(func=cmd_init)
