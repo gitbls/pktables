@@ -1,0 +1,19 @@
+[Unit]
+Description=Port-Knock Daemon
+After=network.target network-online.target
+Wants=network.target network-online.target
+Documentation=man:knockd(1)
+
+[Service]
+EnvironmentFile=-/etc/default/knockd
+ExecStartPre=/bin/bash -c 'if [ -f /usr/local/bin/knockd-helper ] ; then /usr/local/bin/knockd-helper start ; fi'
+ExecStart=/usr/sbin/knockd $KNOCKD_OPTS
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStopPost=/bin/bash -c 'if [ -f /usr/local/bin/knockd-helper ] ; then /usr/local/bin/knockd-helper stop ; fi'
+KillMode=mixed
+SuccessExitStatus=0 2 15
+ProtectSystem=full
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target
