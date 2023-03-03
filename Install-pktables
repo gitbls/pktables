@@ -51,5 +51,6 @@ Next steps:
 3) sudo systemctl enable knockd
 4) Reboot
 5) Check for errors: 'sudo journalctl -b'
+6) Make sure port forwards for all your knock sequences are set in your router
 "
 exit
