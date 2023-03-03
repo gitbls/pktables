@@ -1,0 +1,55 @@
+#!/bin/bash
+
+function errexit() {
+    echo -e "$1"
+    exit 1
+}
+
+function errchk() {
+    local sts=$1
+    [ $sts -ne 0 ] && errexit "? Error downloading pktables components from GitHub"
+}
+
+#
+# Main code
+#
+[ $EUID -eq 0 ] && sudo="" || sudo="sudo"
+srcurl="https://raw.githubusercontent.com/gitbls/pktables/master"
+echo $"
+Install pktables and knockd: Port knocking tools
+"
+echo "Perform 'apt update' and install knockd"
+apt update
+apt install --yes knockd iptables
+
+debug=0
+echo "Download pktables components from $srcurl"
+
+if [ $debug -eq 0 ]
+then
+    $sudo curl --fail --silent --show-error -L $srcurl/pktables -o /usr/local/bin/pktables
+    errchk $?
+    $sudo curl --fail --silent --show-error -L $srcurl/knockd-helper -o /usr/local/bin/knockd-helper
+    errchk $?
+    $sudo curl --fail --silent --show-error -L $srcurl/knockd.service -o /etc/systemd/system/knockd.service
+    errchk $?
+else
+    srcurl="/l/work/pktables"
+    $sudo cp $srcurl/pktables /usr/local/bin/pktables
+    $sudo cp $srcurl/knockd-helper /usr/local/bin/knockd-helper
+    $sudo cp $srcurl/knockd.service /etc/systemd/system/knockd.service
+fi    
+
+$sudo systemctl daemon-reload
+
+echo $"
+knockd and pktables are installed.
+
+Next steps:
+1) sudoedit /etc/knockd.conf and configure your port knocking
+2) sudoedit /usr/local/bin/knockd-helper and add 'pktables init' commands for your port knocking
+3) sudo systemctl enable knockd
+4) Reboot
+5) Check for errors: 'sudo journalctl -b'
+"
+exit
