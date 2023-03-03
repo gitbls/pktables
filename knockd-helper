@@ -1,0 +1,22 @@
+#!/bin/bash
+#
+# Helper script for pktables/knockd
+# Runs 'pktables init' on knockd-managed "doors"
+#
+# When you add new knock configuration to /etc/knockd, add the corresponding 'pktables init' here
+# See https://github.com/gitbls/pktables for details
+#
+case "${1,,}" in
+    on|start)
+	logger "knockd-helper: Starting 'pktables init'"
+	#pktables init ssh --port 22 --syn
+	#pktables init isakmp --port 500 --udp
+	#pktables init ipsec --port 4500 --udp
+    ;;
+    off|stop)
+	logger "knockd-helper: Stopping 'pktables init'"
+	#pktables remove ssh
+	#pktables remove isakmp
+	#pktables remove ipsec
+    ;;
+esac
