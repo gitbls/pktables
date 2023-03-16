@@ -207,11 +207,15 @@ The only iOS app I've tried is PortKnock. It's easy to use, and does the job.
 
 ### Linux
 
-See portknock.py on this GitHub
+Here are two ways to get a knock client for Linux
+* Use `sudo apt install knockd`. This will install the client `knock` as well as the knockd service (small and installed disabled).
+* See portknock.py on this GitHub
 
 ### Windows
 
 See portknock.py in this GitHub. Works well with WSL2, Presumably would work from native Windows if Python is installed, but I have not tested this.
+
+As above for Linux (OK...Debian and derivatives), `sudo apt install knockd` also installs the `knock` client
 
 If you need a GUI, I can't help you, but if you find one that you think works well, let me know and i'll add it to this document.
 
