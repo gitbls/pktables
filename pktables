@@ -12,7 +12,6 @@ def decode(str):
 
 def osexecute(cmd):
 #    if args.debug: print (cmd)
-#    os.system(cmd)
     r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, text=True)
     if r.stderr != "": print(r.stderr)
     return r
@@ -39,18 +38,18 @@ def removechaincall(ipchain):
             ln = 0
         if ln != 0:
             if lwords[3] == ipchain:
-                osexecute ("iptables -D INPUT {}".format(ln))
+                osexecute (f'iptables -D INPUT {ln}')
 
 def empty1chain(ipchain, fdelete):
 # Delete the first entry if fdelete is true. Return True if chain is not empty, else False
-    for line in os.popen('iptables -L {} -vn --line-numbers 2> /dev/null '.format(ipchain)):
+    for line in os.popen(f'iptables -L {ipchain} -vn --line-numbers 2> /dev/null '):
         lwords = ' '.join((line.rstrip()).split()).split(' ')
         try:
             ln = int(lwords[0])
         except:
             ln = 0
         if ln != 0:
-            if fdelete: osexecute ("iptables -D {} {}".format(ipchain, ln))
+            if fdelete: osexecute (f'iptables -D {ipchain} {ln}')
             return True
     return False
 
@@ -65,7 +64,7 @@ def updatechain(ipchain, ipaddr, cmdfound, cmdnotfound):
 # cmdnotfound true: add the entry if not found
 # cmdfound and cmdnotfound are mutually exclusive
 #
-    for line in os.popen('iptables -L {} -vn --line-numbers'.format(ipchain)):
+    for line in os.popen(f'iptables -L {ipchain} -vn --line-numbers'):
         lwords = ' '.join((line.rstrip()).split()).split(' ')
         try:
             ln = int(lwords[0])
@@ -78,52 +77,53 @@ def updatechain(ipchain, ipaddr, cmdfound, cmdnotfound):
                 if lineip == "0.0.0.0": lineip = "999.999.999.999"
                 if ipaddr == lineip:
                     if cmdfound:
-                        osexecute ("iptables -D {} {}".format(ipchain,ln))
+                        osexecute (f'iptables -D {ipchain} {ln}')
                     return
                 elif ipcompare(lineip, ipaddr):
                     if cmdnotfound:
-                        osexecute ("iptables -I {} {} -s {} -j ACCEPT".format(ipchain, ln, ipaddr))
+                        osexecute (f'iptables -I {ipchain} {ln} -s {ipaddr} -j ACCEPT')
                     return
 #
 # Command processing functions
 #
-def cmd_init(args):
+def cmd_init(args, ipchain):
     if not empty1chain(ipchain, False):
         sproto = "udp" if args.udp else "tcp"
         ssyn = "--syn" if args.syn else ""
         sacceptdrop = "ACCEPT" if args.accept else "DROP"
-        logprefix = "" if args.log_prefix is None else "--log-prefix \"{}\"".format(args.log_prefix)
-        loglevel = "" if args.log_level is None else "--log-level {}".format(args.log_level)
-        loglimit = "" if args.log_limit is None else "-m limit --limit {}".format(args.log_limit)
-#        logburst = "" if args.log_burst is None else "--limit-burst {}".format(args.log_burst)
-        osexecute("iptables -N {}".format(ipchain))
-        if args.log: osexecute("iptables -I {} -j LOG {} {} {}".format(ipchain, logprefix, loglevel, loglimit))
-        osexecute("iptables -A {} -s 0.0.0.0/0 -j {}".format(ipchain, sacceptdrop))
-        osexecute("iptables -A INPUT -p {} -m {} -s 0.0.0.0/0 --dport {} {} -j {}".format(sproto, sproto, args.port, ssyn, ipchain))
+        logmodule = "" if args.log_level is None and args.log_limit is None and args.log_burst is None else "-m limit"
+        logprefix = "" if args.log_prefix is None else f'--log-prefix \"{args.log_prefix} \"'
+        loglevel = "" if args.log_level   is None else f'--log-level {args.log_level}'
+        loglimit = "" if args.log_limit   is None else f'--limit {args.log_limit}'
+        logburst = "" if args.log_burst   is None else f'--limit-burst {args.log_burst}'
+        osexecute(f'iptables -N {ipchain}')
+        if args.log: osexecute(f'iptables -I {ipchain} -j LOG {logmodule} {logprefix} {logburst} {loglevel} {loglimit}')
+        osexecute(f'iptables -A {ipchain} -s 0.0.0.0/0 -j {sacceptdrop}')
+        osexecute(f'iptables -A INPUT -p {sproto} -m {sproto} -s 0.0.0.0/0 --dport {args.port} {ssyn} -j {ipchain}')
     else:
-        print("? Chain '{}' already exists".format(ipchain))
+        print(f"? Chain '{ipchain}' already exists")
 
-def cmd_remove(args):
+def cmd_remove(args, ipchain):
     emptychain(ipchain)
     removechaincall(ipchain)
-    osexecute("iptables -X {}".format(ipchain))
+    osexecute(f'iptables -X {ipchain}')
 
-def cmd_add(args):
+def cmd_add(args, ipchain):
     updatechain(ipchain, args.ipaddr.split('/')[0], False, True)
 
-def cmd_delete(args):
+def cmd_delete(args, ipchain):
     updatechain(ipchain, args.ipaddr.split('/')[0], True, False)
 
-def cmd_def(args):
+def cmd_def(args, ipchain):
     print("nyi")
 
-def cmd_list(args):
+def cmd_list(args, ipchain):
     osexecute("iptables -L -vn")
     
-def cmd_nocommand(args):
+def cmd_nocommand(args, ipchain):
     parser.print_help(None)
     
-def cmd_help(args):
+def cmd_help(args, ipchain):
     parser.print_help(None)
     print("\npktables manages service definitions for use with knockd\n\
 by setting up and managing iptables chains for the knockd daemon.\n\
@@ -144,12 +144,11 @@ The 'pktables init' command establishes the table 'pk-ssh' and causes all traffi
 to port 22 with TCP syn set to jump to that table. The start_command adds the IP address\n\
 that successfully completed a knock to the pk-ssh table. The stop_command removes this IP address\n\
 from the table. See 'man knockd' for complete details.\n")
-
 #
 # Main program
 #
 parser = argparse.ArgumentParser(prog="pktables")
-parser.set_defaults(func=cmd_nocommand, service="None") # Needed for the case if no command specified
+parser.set_defaults(func=cmd_nocommand, service="None") # For no command specified
 
 subparsers = parser.add_subparsers(help="sub-command help")
 
@@ -163,7 +162,7 @@ parser_init.add_argument("--log", help="Log packets sent to this port", action="
 parser_init.add_argument("--log-prefix", help="Prefix for logged entries")
 parser_init.add_argument("--log-level", help="Log level for logged entries")
 parser_init.add_argument("--log-limit", help="Max packets to log per /second, /minute, /hour, or /day")
-#parser_init.add_argument("--log-burst", help="Burst packet maximum")
+parser_init.add_argument("--log-burst", help="Burst packet maximum")
 parser_init.add_argument("--accept", help="End service chain with ACCEPT instead of DROP for monitoring", action="store_true")
 #parser_init.add_argument("--debug", help="Echo iptables commands", action="store_true")
 parser_init.set_defaults(func=cmd_init)
@@ -197,7 +196,7 @@ parser_help = subparsers.add_parser("help", help="Print help")
 parser_help.set_defaults(func=cmd_help, service="None") # service=None so that args.service is defined
 
 args = parser.parse_args()
-ipchain = "pk-{}".format(args.service)
-args.func(args)
+ipchain = f'pk-{args.service}'
+args.func(args, ipchain)
 
 exit()

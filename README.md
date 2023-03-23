@@ -89,6 +89,8 @@ The *servicename* in the pktables commands is a string of your choice. Typically
 
     * `--log-prefix` specifies the prefix string to use on the iptables log entry
 
+    * `--log-burst` specifies the number of packets logged in a burst
+
     * `--log-level` specifies the level for the log entry
 
     * `--log-limit` specifies the maximum packets to log per /second, /minute, /hour, or /day, as in 10/second
